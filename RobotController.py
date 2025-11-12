@@ -489,7 +489,7 @@ class RobotController:
     
     def get_camera_frame(self) -> Dict[str, Any]:
         """
-        Get current camera frame.
+        Get current camera frame information.
         
         Returns:
             Dict with frame information (shape, available status)
@@ -513,6 +513,25 @@ class RobotController:
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
+    
+    def get_camera_frame_array(self):
+        """
+        Get current camera frame as numpy array (for direct access).
+        
+        Returns:
+            Tuple of (success, frame) where frame is numpy array or None
+        """
+        try:
+            if self.camera is None:
+                return False, None
+            
+            ret, frame = self.camera.read()
+            if not ret or frame is None:
+                return False, None
+            
+            return True, frame
+        except Exception as e:
+            return False, None
     
     # ============================================================================
     # BUZZER AND LED METHODS
@@ -614,28 +633,65 @@ if __name__ == '__main__':
     status = robot.get_status()
     print(f"Status: {status}")
     
+    # Test camera
+    print("\n" + "="*50)
+    print("Testing Camera...")
+    print("="*50)
+    
+    # Open camera
+    print("\nOpening camera...")
+    result = robot.camera_open()
+    print(f"Camera open result: {result}")
+    time.sleep(1)
+    
+    # Read frames and display info
+    print("\nReading camera frames (10 frames)...")
+    for i in range(10):
+        frame_info = robot.get_camera_frame()
+        if frame_info.get("success"):
+            print(f"Frame {i+1}: OK - Shape: {frame_info['width']}x{frame_info['height']}, Channels: {frame_info['channels']}")
+        else:
+            print(f"Frame {i+1}: {frame_info.get('error', 'Unknown error')}")
+        time.sleep(0.2)
+    
+    # Close camera
+    print("\nClosing camera...")
+    result = robot.camera_close()
+    print(f"Camera close result: {result}")
+    
     # Test stand
-    print("\nStanding...")
+    print("\n" + "="*50)
+    print("Testing Stand...")
+    print("="*50)
     result = robot.stand()
     print(f"Stand result: {result}")
     time.sleep(2)
     
     # Test walk
-    print("\nWalking forward 2 steps...")
+    print("\n" + "="*50)
+    print("Testing Walk...")
+    print("="*50)
+    print("Walking forward 2 steps...")
     result = robot.walk_forward(steps=2)
     print(f"Walk result: {result}")
     time.sleep(3)
     
     # Test wave
-    print("\nWaving...")
+    print("\n" + "="*50)
+    print("Testing Wave...")
+    print("="*50)
     result = robot.wave(times=3)
     print(f"Wave result: {result}")
     time.sleep(3)
     
     # Test IMU
-    print("\nReading IMU...")
+    print("\n" + "="*50)
+    print("Testing IMU...")
+    print("="*50)
     imu = robot.get_imu()
     print(f"IMU: {imu}")
     
-    print("\nTest complete!")
+    print("\n" + "="*50)
+    print("All tests complete!")
+    print("="*50)
 
