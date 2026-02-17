@@ -1,5 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hiwonder
 Version: 1.0
 Summary: hiwonder library
 Author: aiden
+Dynamic: author
+Dynamic: summary
