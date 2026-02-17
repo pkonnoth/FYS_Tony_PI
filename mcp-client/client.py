@@ -14,7 +14,7 @@ from contextlib import AsyncExitStack
 from typing import Any, Optional
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -80,13 +80,7 @@ class MCPClient:
             for tool in response.tools
         ]
 
-        response = self.openai.chat.completions.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            messages=messages,
-            tools=available_tools,
-            tool_choice="auto",
-        )
+        response = self._create_chat_completion(messages, available_tools)
 
         while True:
             message = response.choices[0].message
@@ -149,13 +143,7 @@ class MCPClient:
                         }
                     )
 
-            response = self.openai.chat.completions.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                messages=messages,
-                tools=available_tools,
-                tool_choice="auto",
-            )
+            response = self._create_chat_completion(messages, available_tools)
 
         return "\n".join(final_text)
 
@@ -173,6 +161,32 @@ class MCPClient:
 
     async def cleanup(self):
         await self.exit_stack.aclose()
+
+    def _create_chat_completion(
+        self, messages: list[dict[str, Any]], available_tools: list[dict[str, Any]]
+    ):
+        request_kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "tools": available_tools,
+            "tool_choice": "auto",
+        }
+        try:
+            return self.openai.chat.completions.create(
+                **request_kwargs,
+                max_completion_tokens=self.max_tokens,
+            )
+        except BadRequestError as exc:
+            error_text = str(exc)
+            if (
+                "max_completion_tokens" in error_text
+                and "Unsupported parameter" in error_text
+            ):
+                return self.openai.chat.completions.create(
+                    **request_kwargs,
+                    max_tokens=self.max_tokens,
+                )
+            raise
 
 
 def parse_args() -> argparse.Namespace:
