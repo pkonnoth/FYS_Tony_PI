@@ -6,6 +6,7 @@ This is a uv-managed MCP client for the TonyPi MCP server in this repo.
 ## Setup
 
 ```bash
+cd ..
 uv venv
 source .venv/bin/activate
 uv add mcp openai python-dotenv
@@ -21,13 +22,13 @@ OPENAI_BASE_URL=https://keys.theparley.org/v1
 ## Run (local MCP server)
 
 ```bash
-uv run client.py --server ../MCPServer.py
+uv run mcp-client/client.py --server MCPServer.py
 ```
 
 ## Run (remote Pi over SSH)
 
 ```bash
-uv run client.py \
+uv run mcp-client/client.py \
   --command /usr/bin/ssh \
   --args -T pi@<PI_IP> "cd /home/pi/TonyPi && /home/pi/TonyPi/.venv/bin/python MCPServer.py"
 ```
