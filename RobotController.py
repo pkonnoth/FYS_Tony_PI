@@ -606,6 +606,25 @@ class RobotController:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def relax(self) -> Dict[str, Any]:
+        """
+        Relax all servos (disable torque) so they can be moved manually.
+        
+        Returns:
+            Dict with success status
+        """
+        try:
+            # Stop any running actions
+            self.stop_action()
+            
+            # Unload all bus servos (IDs 1-18)
+            for i in range(1, 19):
+                self.controller.unload_bus_servo(i)
+                
+            return {"success": True, "message": "All servos relaxed (torque disabled)"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
 
 # Singleton instance for easy access
 _robot_instance = None
