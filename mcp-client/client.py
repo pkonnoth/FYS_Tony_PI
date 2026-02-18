@@ -236,9 +236,17 @@ def _stringify_tool_result(content) -> str:
         for item in content:
             if isinstance(item, dict) and "text" in item:
                 parts.append(str(item.get("text")))
-            else:
+                continue
+            if hasattr(item, "text"):
+                parts.append(str(getattr(item, "text")))
+                continue
+            try:
                 parts.append(json.dumps(item, ensure_ascii=True))
+            except TypeError:
+                parts.append(str(item))
         return "\n".join(parts)
+    if hasattr(content, "text"):
+        return str(getattr(content, "text"))
     return str(content)
 
 
