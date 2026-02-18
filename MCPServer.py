@@ -7,7 +7,9 @@ This exposes a curated allowlist of RobotController methods for LLM/MCP use.
 """
 
 import base64
+import os
 import sys
+import time
 
 from mcp.server.fastmcp import FastMCP
 
@@ -21,6 +23,13 @@ if sys.version_info.major == 2:
 
 mcp = FastMCP("TonyPi")
 robot = get_robot()
+
+_CAMERA_FRAMES_DIR = "camera_frames"
+
+
+def _ensure_camera_frames_dir() -> str:
+    os.makedirs(_CAMERA_FRAMES_DIR, exist_ok=True)
+    return _CAMERA_FRAMES_DIR
 
 
 @mcp.tool()
@@ -159,7 +168,7 @@ def get_camera_frame_info():
 
 @mcp.tool()
 def get_camera_frame_base64():
-    """Get current camera frame encoded as base64 JPEG."""
+    """Get current camera frame, save to disk, and return base64 JPEG."""
     ok, frame = robot.get_camera_frame_array()
     if not ok or frame is None:
         return {"success": False, "error": "No frame available"}
@@ -169,8 +178,22 @@ def get_camera_frame_base64():
         ret, buf = cv2.imencode(".jpg", frame)
         if not ret:
             return {"success": False, "error": "Failed to encode frame"}
-        encoded = base64.b64encode(buf.tobytes()).decode("ascii")
-        return {"success": True, "image_b64": encoded, "format": "jpeg"}
+        encoded_bytes = buf.tobytes()
+        frames_dir = _ensure_camera_frames_dir()
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        millis = int((time.time() % 1) * 1000)
+        filename = f"frame_{timestamp}_{millis:03d}.jpg"
+        file_path = os.path.join(frames_dir, filename)
+        with open(file_path, "wb") as out_file:
+            out_file.write(encoded_bytes)
+        encoded = base64.b64encode(encoded_bytes).decode("ascii")
+        return {
+            "success": True,
+            "image_b64": encoded,
+            "format": "jpeg",
+            "file": filename,
+            "path": file_path,
+        }
     except Exception as e:
         return {"success": False, "error": str(e)}
 
