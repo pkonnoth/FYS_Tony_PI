@@ -2,10 +2,17 @@
 # Repo guidance for agentic changes in FYS_Tony_PI (TonyPi robot stack)
 
 ## Scope and expectations
+- This project is a humanoid robot with MCP control
 - Primary language: Python 3
 - Hardware-dependent: many scripts require a TonyPi robot, camera, and STM32 board
 - Be conservative with runtime commands on non-robot hosts
 - Preserve existing patterns; avoid repo-wide formatting changes
+- Write clean, readable code with explicit try/except around hardware and IO calls
+
+## Environment (uv)
+- All virtual environments use uv
+- Use `uv run` for execution and `uv pip` for dependencies
+- Prefer uv-managed environments over system Python
 
 ## Build, install, and runtime commands
 
@@ -152,6 +159,9 @@
   - `OPENAI_API_KEY`
   - `OPENAI_BASE_URL` (custom endpoint)
 - The client loads `.env` from the working directory
+- Run server and client (separate terminals recommended):
+  - Server: `uv run python MCPServer.py`
+  - Client: `cd mcp-client && uv run python client.py --server ../MCPServer.py --cwd ..`
 
 ## Cursor/Copilot rules
 - No `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` found

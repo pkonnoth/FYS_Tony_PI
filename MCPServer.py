@@ -169,10 +169,21 @@ def get_camera_frame_info():
 @mcp.tool()
 def get_camera_frame_base64():
     """Get current camera frame, save to disk, and return base64 JPEG."""
-    ok, frame = robot.get_camera_frame_array()
-    if not ok or frame is None:
-        return {"success": False, "error": "No frame available"}
     try:
+        camera_opened = False
+        if robot.camera is None or not getattr(robot.camera, "opened", False):
+            open_result = robot.camera_open()
+            if not open_result.get("success"):
+                return {
+                    "success": False,
+                    "error": open_result.get("error", "Camera open failed"),
+                }
+            camera_opened = True
+
+        ok, frame = robot.get_camera_frame_array()
+        if not ok or frame is None:
+            return {"success": False, "error": "No frame available"}
+
         import cv2
 
         ret, buf = cv2.imencode(".jpg", frame)
@@ -187,13 +198,16 @@ def get_camera_frame_base64():
         with open(file_path, "wb") as out_file:
             out_file.write(encoded_bytes)
         encoded = base64.b64encode(encoded_bytes).decode("ascii")
-        return {
+        result = {
             "success": True,
             "image_b64": encoded,
             "format": "jpeg",
             "file": filename,
             "path": file_path,
         }
+        if camera_opened:
+            result["camera_opened"] = True
+        return result
     except Exception as e:
         return {"success": False, "error": str(e)}
 
