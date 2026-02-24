@@ -25,6 +25,26 @@ OPENAI_BASE_URL=https://keys.theparley.org/v1
 uv run mcp-client/client.py --server MCPServer.py
 ```
 
+## Web dashboard (Streamlit)
+
+Terminal A (MCP server):
+
+```bash
+uv run python MCPServer.py
+```
+
+Terminal B (MJPG stream):
+
+```bash
+python3 MjpgServer.py
+```
+
+Terminal C (dashboard):
+
+```bash
+uv run streamlit run mcp-client/dashboard.py
+```
+
 ## Run (remote Pi over SSH)
 
 ```bash

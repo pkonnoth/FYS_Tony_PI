@@ -7,4 +7,5 @@ dependencies = [
   "mcp",
   "openai",
   "python-dotenv",
+  "streamlit",
 ]

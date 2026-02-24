@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import os
+import time
 from contextlib import AsyncExitStack
 from typing import Any, Optional
 
@@ -58,7 +59,15 @@ class MCPClient:
         print("\nConnected to server with tools:", [tool.name for tool in tools])
 
     async def process_query(self, query: str) -> str:
+        result = await self.process_query_with_metrics(query)
+        return result["text"]
+
+    async def process_query_with_metrics(self, query: str) -> dict[str, Any]:
         assert self.session is not None
+        t0 = time.perf_counter()
+        first_response_at = None
+        first_action_at = None
+
         messages: list[dict[str, Any]] = [
             {
                 "role": "user",
@@ -81,6 +90,7 @@ class MCPClient:
         ]
 
         response = self._create_chat_completion(messages, available_tools)
+        first_response_at = time.perf_counter()
 
         while True:
             message = response.choices[0].message
@@ -88,6 +98,9 @@ class MCPClient:
                 final_text.append(message.content)
 
             tool_calls = message.tool_calls or []
+            if tool_calls and first_action_at is None:
+                first_action_at = time.perf_counter()
+
             if not tool_calls:
                 break
 
@@ -145,7 +158,18 @@ class MCPClient:
 
             response = self._create_chat_completion(messages, available_tools)
 
-        return "\n".join(final_text)
+        response_time_s = None
+        time_to_action_s = None
+        if first_response_at is not None:
+            response_time_s = first_response_at - t0
+        if first_action_at is not None:
+            time_to_action_s = first_action_at - t0
+
+        return {
+            "text": "\n".join(final_text),
+            "response_time_s": response_time_s,
+            "time_to_action_s": time_to_action_s,
+        }
 
     async def chat_loop(self):
         print("\nMCP Client Started!")
