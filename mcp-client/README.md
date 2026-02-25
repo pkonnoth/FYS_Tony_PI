@@ -45,6 +45,9 @@ Terminal C (dashboard):
 uv run streamlit run mcp-client/dashboard.py
 ```
 
+In the Streamlit UI, open `Pages -> API Key` to update `OPENAI_API_KEY` and
+`OPENAI_BASE_URL` without editing files manually.
+
 ## Run (remote Pi over SSH)
 
 ```bash

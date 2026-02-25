@@ -25,12 +25,22 @@ load_dotenv()
 
 
 class MCPClient:
-    def __init__(self, model: str, max_tokens: int):
+    def __init__(
+        self,
+        model: str,
+        max_tokens: int,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ):
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        base_url = os.environ.get("OPENAI_BASE_URL")
-        api_key = os.environ.get("OPENAI_API_KEY")
-        self.openai = OpenAI(api_key=api_key, base_url=base_url)
+        resolved_base_url = (
+            base_url if base_url is not None else os.environ.get("OPENAI_BASE_URL")
+        )
+        resolved_api_key = (
+            api_key if api_key is not None else os.environ.get("OPENAI_API_KEY")
+        )
+        self.openai = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
         self.model = model
         self.max_tokens = max_tokens
 
