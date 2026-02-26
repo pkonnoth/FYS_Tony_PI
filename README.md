@@ -13,33 +13,6 @@ Humanoid robot stack with MCP control for TonyPi.
 
 ## Run
 
-### Main runtime (RPC + MJPG)
-```bash
-python3 TonyPi.py
-```
-
-### RPC server only
-```bash
-python3 RPCServer.py
-```
-
-### MJPG stream only
-```bash
-python3 MjpgServer.py
-```
-
-### MCP server + client
-Terminal A (server):
-```bash
-uv run python MCPServer.py
-```
-
-Terminal B (client):
-```bash
-cd mcp-client
-uv run python client.py --server ../MCPServer.py --cwd ..
-```
-
 ### MCP server + dashboard
 Terminal A (MCP server):
 ```bash
