@@ -35,9 +35,17 @@
   - Starts MJPG stream on port 8080
 
 ### MCP server (tooling)
-- `python3 MCPServer.py`
+- `uv run python MCPServer.py`
   - Exposes RobotController methods via MCP (stdio transport)
   - Requires hardware access; avoid running with other control servers
+
+### Web dashboard (Streamlit)
+- Run in separate terminals:
+  - Terminal A: `uv run python MCPServer.py`
+  - Terminal B: `python3 MjpgServer.py`
+  - Terminal C: `uv run streamlit run mcp-client/dashboard.py`
+- Open the Streamlit URL shown in the terminal (usually `http://localhost:8501`)
+- API credentials can be updated in UI via `Pages -> API Key`
 
 ### Example and function entry points
 - Example actions are listed in `Command.txt`
@@ -76,6 +84,9 @@
 - `ActionGroups/`: action group assets
 - `MCPServer.py`: MCP tool server entrypoint (stdio)
 - `mcp-client/`: uv-managed MCP client project
+- `mcp-client/dashboard.py`: Streamlit dashboard (camera, chat, latency)
+- `mcp-client/pages/API_Key.py`: dashboard page to edit API credentials
+- `mcp-client/webui_settings.py`: load/save dashboard credentials in `.env`
 
 ## Style and conventions
 
@@ -159,9 +170,15 @@
   - `OPENAI_API_KEY`
   - `OPENAI_BASE_URL` (custom endpoint)
 - The client loads `.env` from the working directory
+- Dashboard credential changes are persisted to `mcp-client/.env`
+- API credentials can be updated in UI via `Pages -> API Key`
 - Run server and client (separate terminals recommended):
   - Server: `uv run python MCPServer.py`
   - Client: `cd mcp-client && uv run python client.py --server ../MCPServer.py --cwd ..`
+- Run server + dashboard (separate terminals recommended):
+  - MCP server: `uv run python MCPServer.py`
+  - MJPG stream: `python3 MjpgServer.py`
+  - Dashboard: `uv run streamlit run mcp-client/dashboard.py`
 
 ## Cursor/Copilot rules
 - No `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` found
