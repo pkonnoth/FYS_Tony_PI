@@ -10,7 +10,7 @@ Humanoid robot stack with MCP control for TonyPi.
 ## Environment (uv)
 - All virtual environments use uv
 - Use `uv run` to execute and `uv pip` for dependencies
-- Install project dependencies (including `opencv-python` for MJPG):
+- Install project dependencies (including local `hiwonder` SDK, `pyserial`, `pyyaml`, and `opencv-python`):
 ```bash
 uv sync
 ```

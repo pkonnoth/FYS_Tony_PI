@@ -4,9 +4,15 @@ version = "0.1.0"
 description = "TonyPi MCP server and client tooling"
 requires-python = ">=3.11"
 dependencies = [
+  "hiwonder",
   "mcp",
   "openai",
   "opencv-python>=4.13.0.92",
+  "pyserial>=3.5",
   "python-dotenv",
+  "pyyaml>=6.0.3",
   "streamlit",
 ]
+
+[tool.uv.sources]
+hiwonder = { path = "HiwonderSDK" }
