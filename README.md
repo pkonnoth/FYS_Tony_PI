@@ -10,6 +10,10 @@ Humanoid robot stack with MCP control for TonyPi.
 ## Environment (uv)
 - All virtual environments use uv
 - Use `uv run` to execute and `uv pip` for dependencies
+- Install project dependencies (including `opencv-python` for MJPG):
+```bash
+uv sync
+```
 
 ## Run
 
@@ -21,7 +25,7 @@ uv run python MCPServer.py
 
 Terminal B (MJPG stream):
 ```bash
-python3 MjpgServer.py
+uv run python MjpgServer.py
 ```
 
 Terminal C (Streamlit dashboard):

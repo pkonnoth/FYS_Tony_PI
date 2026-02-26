@@ -30,7 +30,7 @@ uv run python MCPServer.py
 Terminal B (MJPG stream):
 
 ```bash
-python3 MjpgServer.py
+uv run python MjpgServer.py
 ```
 
 Terminal C (Streamlit dashboard):

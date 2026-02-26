@@ -12,6 +12,8 @@
 ## Environment (uv)
 - All virtual environments use uv
 - Use `uv run` for execution and `uv pip` for dependencies
+- Use `uv add` to add project packages and `uv pip` for pip-compatible workflows
+- Use uv to manage all dependencies for this repository
 - Prefer uv-managed environments over system Python
 
 ## Build, install, and runtime commands
@@ -31,7 +33,7 @@
   - Exposes servo/control RPC methods via werkzeug
 
 ### MJPG stream only
-- `python3 MjpgServer.py`
+- `uv run python MjpgServer.py`
   - Starts MJPG stream on port 8080
 
 ### MCP server (tooling)
@@ -42,7 +44,7 @@
 ### Web dashboard (Streamlit)
 - Run in separate terminals:
   - Terminal A: `uv run python MCPServer.py`
-  - Terminal B: `python3 MjpgServer.py`
+  - Terminal B: `uv run python MjpgServer.py`
   - Terminal C: `uv run streamlit run mcp-client/dashboard.py`
 - Open the Streamlit URL shown in the terminal (usually `http://localhost:8501`)
 - API credentials can be updated in UI via `Pages -> API Key`
@@ -177,7 +179,7 @@
   - Client: `cd mcp-client && uv run python client.py --server ../MCPServer.py --cwd ..`
 - Run server + dashboard (separate terminals recommended):
   - MCP server: `uv run python MCPServer.py`
-  - MJPG stream: `python3 MjpgServer.py`
+  - MJPG stream: `uv run python MjpgServer.py`
   - Dashboard: `uv run streamlit run mcp-client/dashboard.py`
 
 ## Cursor/Copilot rules
