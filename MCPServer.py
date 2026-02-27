@@ -10,6 +10,7 @@ import base64
 import os
 import sys
 import time
+import urllib.request
 
 from mcp.server.fastmcp import FastMCP
 
@@ -25,11 +26,38 @@ mcp = FastMCP("TonyPi")
 robot = get_robot()
 
 _CAMERA_FRAMES_DIR = "camera_frames"
+_MJPG_SNAPSHOT_URL = os.environ.get(
+    "MJPG_SNAPSHOT_URL", "http://127.0.0.1:8080/?action=snapshot"
+)
 
 
 def _ensure_camera_frames_dir() -> str:
     os.makedirs(_CAMERA_FRAMES_DIR, exist_ok=True)
     return _CAMERA_FRAMES_DIR
+
+
+def _save_frame_bytes(encoded_bytes: bytes) -> tuple[str, str]:
+    frames_dir = _ensure_camera_frames_dir()
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    millis = int((time.time() % 1) * 1000)
+    filename = f"frame_{timestamp}_{millis:03d}.jpg"
+    file_path = os.path.join(frames_dir, filename)
+    with open(file_path, "wb") as out_file:
+        out_file.write(encoded_bytes)
+    return filename, file_path
+
+
+def _read_mjpg_snapshot_bytes(timeout_s: float = 1.5):
+    try:
+        with urllib.request.urlopen(_MJPG_SNAPSHOT_URL, timeout=timeout_s) as resp:
+            if getattr(resp, "status", 200) != 200:
+                return None
+            data = resp.read()
+            if data:
+                return data
+    except Exception:
+        return None
+    return None
 
 
 @mcp.tool()
@@ -170,8 +198,26 @@ def get_camera_frame_info():
 def get_camera_frame_base64():
     """Get current camera frame, save to disk, and return base64 JPEG."""
     try:
+        source = "robot_camera"
+        encoded_bytes = None
         camera_opened = False
-        if robot.camera is None or not getattr(robot.camera, "opened", False):
+
+        if robot.camera is not None and getattr(robot.camera, "opened", False):
+            ok, frame = robot.get_camera_frame_array()
+            if ok and frame is not None:
+                import cv2
+
+                ret, buf = cv2.imencode(".jpg", frame)
+                if ret:
+                    encoded_bytes = buf.tobytes()
+
+        if encoded_bytes is None:
+            snapshot = _read_mjpg_snapshot_bytes()
+            if snapshot is not None:
+                encoded_bytes = snapshot
+                source = "mjpg_snapshot"
+
+        if encoded_bytes is None:
             open_result = robot.camera_open()
             if not open_result.get("success"):
                 return {
@@ -179,24 +225,17 @@ def get_camera_frame_base64():
                     "error": open_result.get("error", "Camera open failed"),
                 }
             camera_opened = True
+            ok, frame = robot.get_camera_frame_array()
+            if not ok or frame is None:
+                return {"success": False, "error": "No frame available"}
+            import cv2
 
-        ok, frame = robot.get_camera_frame_array()
-        if not ok or frame is None:
-            return {"success": False, "error": "No frame available"}
+            ret, buf = cv2.imencode(".jpg", frame)
+            if not ret:
+                return {"success": False, "error": "Failed to encode frame"}
+            encoded_bytes = buf.tobytes()
 
-        import cv2
-
-        ret, buf = cv2.imencode(".jpg", frame)
-        if not ret:
-            return {"success": False, "error": "Failed to encode frame"}
-        encoded_bytes = buf.tobytes()
-        frames_dir = _ensure_camera_frames_dir()
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        millis = int((time.time() % 1) * 1000)
-        filename = f"frame_{timestamp}_{millis:03d}.jpg"
-        file_path = os.path.join(frames_dir, filename)
-        with open(file_path, "wb") as out_file:
-            out_file.write(encoded_bytes)
+        filename, file_path = _save_frame_bytes(encoded_bytes)
         encoded = base64.b64encode(encoded_bytes).decode("ascii")
         result = {
             "success": True,
@@ -204,6 +243,7 @@ def get_camera_frame_base64():
             "format": "jpeg",
             "file": filename,
             "path": file_path,
+            "source": source,
         }
         if camera_opened:
             result["camera_opened"] = True
