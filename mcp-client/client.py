@@ -153,14 +153,28 @@ class MCPClient:
 
                 image_b64 = _extract_image_b64(result.content)
                 if image_b64:
+                    vision_text = self._analyze_camera_image(query, image_b64)
+                    if vision_text:
+                        final_text.append(f"[Vision] {vision_text}")
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": f"Camera analysis: {vision_text}",
+                            }
+                        )
                     messages.append(
                         {
                             "role": "user",
                             "content": [
-                                {"type": "text", "text": "Analyze this image."},
                                 {
-                                    "type": "input_image",
-                                    "image_url": f"data:image/jpeg;base64,{image_b64}",
+                                    "type": "text",
+                                    "text": "Analyze this camera image and describe concrete visible details.",
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_b64}"
+                                    },
                                 },
                             ],
                         }
@@ -221,6 +235,54 @@ class MCPClient:
                     max_tokens=self.max_tokens,
                 )
             raise
+
+    def _create_chat_completion_no_tools(self, messages: list[dict[str, Any]]):
+        request_kwargs = {
+            "model": self.model,
+            "messages": messages,
+        }
+        try:
+            return self.openai.chat.completions.create(
+                **request_kwargs,
+                max_completion_tokens=self.max_tokens,
+            )
+        except BadRequestError as exc:
+            error_text = str(exc)
+            if (
+                "max_completion_tokens" in error_text
+                and "Unsupported parameter" in error_text
+            ):
+                return self.openai.chat.completions.create(
+                    **request_kwargs,
+                    max_tokens=self.max_tokens,
+                )
+            raise
+
+    def _analyze_camera_image(self, query: str, image_b64: str) -> str:
+        vision_messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "User request: "
+                            + query
+                            + "\nDescribe what is actually visible in this camera image with concrete details."
+                        ),
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+                    },
+                ],
+            }
+        ]
+        try:
+            response = self._create_chat_completion_no_tools(vision_messages)
+            return response.choices[0].message.content or ""
+        except Exception:
+            return ""
 
 
 def parse_args() -> argparse.Namespace:
