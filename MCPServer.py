@@ -60,6 +60,10 @@ def _read_mjpg_snapshot_bytes(timeout_s: float = 1.5):
     return None
 
 
+def _mjpg_snapshot_available(timeout_s: float = 1.0) -> bool:
+    return _read_mjpg_snapshot_bytes(timeout_s=timeout_s) is not None
+
+
 @mcp.tool()
 def stand(slow: bool = True):
     """Stand at attention."""
@@ -179,18 +183,39 @@ def shutdown():
 @mcp.tool()
 def camera_open():
     """Open the camera."""
+    if _mjpg_snapshot_available():
+        return {
+            "success": True,
+            "message": "Using MJPG snapshot source",
+            "source": "mjpg_snapshot",
+        }
     return robot.camera_open()
 
 
 @mcp.tool()
 def camera_close():
     """Close the camera."""
+    if _mjpg_snapshot_available():
+        return {
+            "success": True,
+            "message": "MJPG snapshot source active; no direct camera close needed",
+            "source": "mjpg_snapshot",
+        }
     return robot.camera_close()
 
 
 @mcp.tool()
 def get_camera_frame_info():
     """Get camera frame metadata (shape/size only)."""
+    snapshot = _read_mjpg_snapshot_bytes(timeout_s=1.0)
+    if snapshot is not None:
+        return {
+            "success": True,
+            "frame_available": True,
+            "source": "mjpg_snapshot",
+            "bytes": len(snapshot),
+            "format": "jpeg",
+        }
     return robot.get_camera_frame()
 
 
