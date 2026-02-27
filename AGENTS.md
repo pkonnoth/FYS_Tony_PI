@@ -43,9 +43,10 @@
 
 ### Web dashboard (Streamlit)
 - Run in separate terminals:
-  - Terminal A: `uv run python MCPServer.py`
-  - Terminal B: `uv run python MjpgServer.py`
-  - Terminal C: `uv run streamlit run mcp-client/dashboard.py`
+  - Terminal A: `uv run python MjpgServer.py`
+  - Terminal B: `uv run streamlit run mcp-client/dashboard.py`
+- Dashboard starts `MCPServer.py` automatically for chat/tool calls
+- Do not run a separate `uv run python MCPServer.py` while dashboard is active
 - Open the Streamlit URL shown in the terminal (usually `http://localhost:8501`)
 - API credentials can be updated in UI via `Pages -> API Key`
 
@@ -178,9 +179,9 @@
   - Server: `uv run python MCPServer.py`
   - Client: `cd mcp-client && uv run python client.py --server ../MCPServer.py --cwd ..`
 - Run server + dashboard (separate terminals recommended):
-  - MCP server: `uv run python MCPServer.py`
   - MJPG stream: `uv run python MjpgServer.py`
   - Dashboard: `uv run streamlit run mcp-client/dashboard.py`
+  - MCP server is started by the dashboard process
 
 ## Cursor/Copilot rules
 - No `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` found

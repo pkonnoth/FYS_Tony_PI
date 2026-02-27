@@ -2,6 +2,9 @@
 # encoding: utf-8
 
 import asyncio
+import socket
+import sys
+import threading
 from pathlib import Path
 
 import streamlit as st
@@ -14,36 +17,101 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
 SERVER_SCRIPT = str(REPO_ROOT / "MCPServer.py")
 SERVER_CWD = str(REPO_ROOT)
+SERVER_PYTHON = sys.executable
 
 
-async def _query_mcp(
-    query: str,
-    model: str,
-    max_tokens: int,
-    api_key: str,
-    base_url: str,
-):
-    client = MCPClient(
-        model=model,
-        max_tokens=max_tokens,
-        api_key=api_key,
-        base_url=base_url or None,
-    )
+def _detect_host_ip() -> str:
+    sock = None
     try:
-        await client.connect_to_server("python3", [SERVER_SCRIPT], cwd=SERVER_CWD)
-        return await client.process_query_with_metrics(query)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(("8.8.8.8", 80))
+        host_ip = sock.getsockname()[0]
+        if host_ip and not host_ip.startswith("127."):
+            return host_ip
+    except Exception:
+        pass
     finally:
-        await client.cleanup()
+        if sock is not None:
+            sock.close()
+
+    try:
+        host_ip = socket.gethostbyname(socket.gethostname())
+        if host_ip and not host_ip.startswith("127."):
+            return host_ip
+    except Exception:
+        pass
+
+    return "127.0.0.1"
 
 
-def query_mcp_sync(
-    query: str,
-    model: str,
-    max_tokens: int,
-    api_key: str,
-    base_url: str,
-):
-    return asyncio.run(_query_mcp(query, model, max_tokens, api_key, base_url))
+def _default_mjpg_url() -> str:
+    return f"http://{_detect_host_ip()}:8080/"
+
+
+class DashboardMCPBridge:
+    def __init__(self, model: str, max_tokens: int, api_key: str, base_url: str):
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        self._client = MCPClient(
+            model=model,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            base_url=base_url or None,
+        )
+        self._call(
+            self._client.connect_to_server(
+                SERVER_PYTHON, [SERVER_SCRIPT], cwd=SERVER_CWD
+            )
+        )
+
+    def _run_loop(self):
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_forever()
+
+    def _call(self, coro):
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
+
+    def query(self, query: str, model: str, max_tokens: int):
+        self._client.model = model
+        self._client.max_tokens = max_tokens
+        return self._call(self._client.process_query_with_metrics(query))
+
+    def close(self):
+        try:
+            self._call(self._client.cleanup())
+        except Exception:
+            pass
+        try:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        except Exception:
+            pass
+
+
+def _bridge_signature(model: str, max_tokens: int, api_key: str, base_url: str):
+    return (model, int(max_tokens), api_key.strip(), base_url.strip())
+
+
+def get_mcp_bridge(model: str, max_tokens: int, api_key: str, base_url: str):
+    signature = _bridge_signature(model, max_tokens, api_key, base_url)
+    bridge = st.session_state.get("mcp_bridge")
+    old_signature = st.session_state.get("mcp_bridge_signature")
+    if bridge is not None and old_signature == signature:
+        return bridge
+
+    if bridge is not None:
+        bridge.close()
+
+    bridge = DashboardMCPBridge(
+        model=model,
+        max_tokens=int(max_tokens),
+        api_key=api_key,
+        base_url=base_url,
+    )
+    st.session_state.mcp_bridge = bridge
+    st.session_state.mcp_bridge_signature = signature
+    return bridge
 
 
 def _init_state():
@@ -56,6 +124,12 @@ def _init_state():
         st.session_state.api_key = settings.get("OPENAI_API_KEY", "")
     if "base_url" not in st.session_state:
         st.session_state.base_url = settings.get("OPENAI_BASE_URL", "")
+    if "mcp_bridge" not in st.session_state:
+        st.session_state.mcp_bridge = None
+    if "mcp_bridge_signature" not in st.session_state:
+        st.session_state.mcp_bridge_signature = None
+    if "camera_url" not in st.session_state:
+        st.session_state.camera_url = _default_mjpg_url()
 
 
 def _render_camera(camera_url: str):
@@ -102,7 +176,8 @@ def main():
 
     with st.sidebar:
         st.header("Settings")
-        camera_url = st.text_input("MJPG URL", value="http://127.0.0.1:8080/")
+        st.text_input("MJPG URL", key="camera_url")
+        st.caption("If viewing remotely, use http://<PI_IP>:8080/ (not 127.0.0.1).")
         model = st.text_input("Model", value="gpt-5.1")
         max_tokens = st.number_input(
             "Max tokens", min_value=100, max_value=4000, value=1000, step=100
@@ -111,11 +186,18 @@ def main():
         st.caption("API key page: Pages -> API Key")
         st.caption(f"API key configured: {'Yes' if has_key else 'No'}")
         st.caption(f"MCP server: {SERVER_SCRIPT}")
+        if st.button("Reconnect MCP"):
+            bridge = st.session_state.get("mcp_bridge")
+            if bridge is not None:
+                bridge.close()
+            st.session_state.mcp_bridge = None
+            st.session_state.mcp_bridge_signature = None
+            st.success("MCP connection reset. It will reconnect on next query.")
 
     col1, col2 = st.columns([2, 1])
     with col1:
         st.subheader("Camera")
-        _render_camera(camera_url)
+        _render_camera(st.session_state.camera_url)
     with col2:
         _render_metrics_panel()
 
@@ -139,13 +221,13 @@ def main():
                     raise RuntimeError(
                         "API key missing. Open the API Key page and save it."
                     )
-                result = query_mcp_sync(
-                    prompt,
+                bridge = get_mcp_bridge(
                     model=model,
                     max_tokens=int(max_tokens),
                     api_key=st.session_state.api_key,
                     base_url=st.session_state.base_url,
                 )
+                result = bridge.query(prompt, model=model, max_tokens=int(max_tokens))
                 text = result.get("text", "")
                 st.write(text)
                 st.session_state.messages.append({"role": "assistant", "content": text})
@@ -157,6 +239,11 @@ def main():
                     }
                 )
             except Exception as exc:
+                bridge = st.session_state.get("mcp_bridge")
+                if bridge is not None:
+                    bridge.close()
+                st.session_state.mcp_bridge = None
+                st.session_state.mcp_bridge_signature = None
                 error_text = f"Error: {exc}"
                 st.error(error_text)
                 st.session_state.messages.append(

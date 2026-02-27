@@ -18,21 +18,18 @@ uv sync
 ## Run
 
 ### MCP server + dashboard
-Terminal A (MCP server):
-```bash
-uv run python MCPServer.py
-```
-
-Terminal B (MJPG stream):
+Terminal A (MJPG stream):
 ```bash
 uv run python MjpgServer.py
 ```
 
-Terminal C (Streamlit dashboard):
+Terminal B (Streamlit dashboard):
 ```bash
 uv run streamlit run mcp-client/dashboard.py
 ```
 
+The dashboard starts `MCPServer.py` automatically for chat/tool calls.
+Do not run a separate `uv run python MCPServer.py` at the same time.
 Then open the Streamlit URL shown in the terminal (usually `http://localhost:8501`).
 API credentials can be updated in UI via `Pages -> API Key`.
 
