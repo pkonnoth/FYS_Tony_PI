@@ -24,6 +24,26 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 load_dotenv()
 
 
+DEFAULT_SYSTEM_PROMPT = """You are TonyPi Assistant, an embodied robot operator.
+
+Primary objective:
+- Help the user by controlling TonyPi safely and accurately.
+- Prefer factual, grounded answers from tools over guesswork.
+
+Tool-use policy:
+1) If the user asks about what is visible (e.g. \"what do you see\", \"describe the scene\", \"is there X\"), call `get_camera_frame_base64` first, then base your answer on that frame.
+2) If camera access is needed and not ready, call `camera_open` and then `get_camera_frame_base64`.
+3) For motion or posture requests, call the appropriate robot control tools instead of describing what you would do.
+4) Never claim sensor/camera observations unless they come from a tool result in this turn.
+5) If a tool fails, say what failed and try the next best tool/action.
+6) Keep responses concise, action-oriented, and explicit about what tools were used.
+
+Safety:
+- Refuse dangerous actions (self-harm, unsafe operation around people/obstacles).
+- If uncertain, stop movement and ask a short clarification.
+"""
+
+
 class MCPClient:
     def __init__(
         self,
@@ -31,6 +51,7 @@ class MCPClient:
         max_tokens: int,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     ):
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
@@ -43,6 +64,7 @@ class MCPClient:
         self.openai = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
         self.model = model
         self.max_tokens = max_tokens
+        self.system_prompt = system_prompt
 
     async def connect_to_server(
         self, command: str, args: list[str], cwd: Optional[str] = None
@@ -78,12 +100,20 @@ class MCPClient:
         first_response_at = None
         first_action_at = None
 
-        messages: list[dict[str, Any]] = [
+        messages: list[dict[str, Any]] = []
+        if self.system_prompt:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": self.system_prompt,
+                }
+            )
+        messages.append(
             {
                 "role": "user",
                 "content": query,
             }
-        ]
+        )
 
         final_text = []
         response = await self.session.list_tools()
@@ -259,7 +289,15 @@ class MCPClient:
             raise
 
     def _analyze_camera_image(self, query: str, image_b64: str) -> str:
-        vision_messages = [
+        vision_messages = []
+        if self.system_prompt:
+            vision_messages.append(
+                {
+                    "role": "system",
+                    "content": self.system_prompt,
+                }
+            )
+        vision_messages.append(
             {
                 "role": "user",
                 "content": [
@@ -277,7 +315,7 @@ class MCPClient:
                     },
                 ],
             }
-        ]
+        )
         try:
             response = self._create_chat_completion_no_tools(vision_messages)
             return response.choices[0].message.content or ""
@@ -319,6 +357,11 @@ def parse_args() -> argparse.Namespace:
         default=1000,
         help="Max tokens for model responses",
     )
+    parser.add_argument(
+        "--system-prompt",
+        default=DEFAULT_SYSTEM_PROMPT,
+        help="System prompt/persona for assistant behavior",
+    )
     return parser.parse_args()
 
 
@@ -347,27 +390,32 @@ def _stringify_tool_result(content) -> str:
 
 
 def _extract_image_b64(content) -> Optional[str]:
-    if isinstance(content, dict):
-        return content.get("image_b64")
-    if isinstance(content, str):
+    def _from_text_blob(text: str) -> Optional[str]:
         try:
-            data = json.loads(content)
+            data = json.loads(text)
             if isinstance(data, dict):
                 return data.get("image_b64")
         except json.JSONDecodeError:
             return None
+        return None
+
+    if isinstance(content, dict):
+        return content.get("image_b64")
+    if isinstance(content, str):
+        return _from_text_blob(content)
     if isinstance(content, list):
         for item in content:
             if isinstance(item, dict):
                 if "image_b64" in item:
                     return item.get("image_b64")
                 if "text" in item:
-                    try:
-                        data = json.loads(item.get("text") or "")
-                        if isinstance(data, dict) and "image_b64" in data:
-                            return data.get("image_b64")
-                    except json.JSONDecodeError:
-                        continue
+                    parsed = _from_text_blob(item.get("text") or "")
+                    if parsed:
+                        return parsed
+            if hasattr(item, "text"):
+                parsed = _from_text_blob(str(getattr(item, "text") or ""))
+                if parsed:
+                    return parsed
     return None
 
 
@@ -394,7 +442,11 @@ async def main():
         command = infer_command(args.server)
         server_args = [args.server]
 
-    client = MCPClient(model=args.model, max_tokens=args.max_tokens)
+    client = MCPClient(
+        model=args.model,
+        max_tokens=args.max_tokens,
+        system_prompt=args.system_prompt,
+    )
     try:
         await client.connect_to_server(command, server_args, cwd=args.cwd)
         await client.chat_loop()

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from client import MCPClient
+from client import DEFAULT_SYSTEM_PROMPT, MCPClient
 from webui_settings import load_webui_settings
 
 
@@ -49,7 +49,14 @@ def _default_mjpg_url() -> str:
 
 
 class DashboardMCPBridge:
-    def __init__(self, model: str, max_tokens: int, api_key: str, base_url: str):
+    def __init__(
+        self,
+        model: str,
+        max_tokens: int,
+        api_key: str,
+        base_url: str,
+        system_prompt: str,
+    ):
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
@@ -58,6 +65,7 @@ class DashboardMCPBridge:
             max_tokens=max_tokens,
             api_key=api_key,
             base_url=base_url or None,
+            system_prompt=system_prompt,
         )
         self._call(
             self._client.connect_to_server(
@@ -89,12 +97,30 @@ class DashboardMCPBridge:
             pass
 
 
-def _bridge_signature(model: str, max_tokens: int, api_key: str, base_url: str):
-    return (model, int(max_tokens), api_key.strip(), base_url.strip())
+def _bridge_signature(
+    model: str,
+    max_tokens: int,
+    api_key: str,
+    base_url: str,
+    system_prompt: str,
+):
+    return (
+        model,
+        int(max_tokens),
+        api_key.strip(),
+        base_url.strip(),
+        system_prompt.strip(),
+    )
 
 
-def get_mcp_bridge(model: str, max_tokens: int, api_key: str, base_url: str):
-    signature = _bridge_signature(model, max_tokens, api_key, base_url)
+def get_mcp_bridge(
+    model: str,
+    max_tokens: int,
+    api_key: str,
+    base_url: str,
+    system_prompt: str,
+):
+    signature = _bridge_signature(model, max_tokens, api_key, base_url, system_prompt)
     bridge = st.session_state.get("mcp_bridge")
     old_signature = st.session_state.get("mcp_bridge_signature")
     if bridge is not None and old_signature == signature:
@@ -108,6 +134,7 @@ def get_mcp_bridge(model: str, max_tokens: int, api_key: str, base_url: str):
         max_tokens=int(max_tokens),
         api_key=api_key,
         base_url=base_url,
+        system_prompt=system_prompt,
     )
     st.session_state.mcp_bridge = bridge
     st.session_state.mcp_bridge_signature = signature
@@ -130,6 +157,8 @@ def _init_state():
         st.session_state.mcp_bridge_signature = None
     if "camera_url" not in st.session_state:
         st.session_state.camera_url = _default_mjpg_url()
+    if "system_prompt" not in st.session_state:
+        st.session_state.system_prompt = DEFAULT_SYSTEM_PROMPT
 
 
 def _render_camera(camera_url: str):
@@ -186,6 +215,7 @@ def main():
         st.caption("API key page: Pages -> API Key")
         st.caption(f"API key configured: {'Yes' if has_key else 'No'}")
         st.caption(f"MCP server: {SERVER_SCRIPT}")
+        st.text_area("System Prompt", key="system_prompt", height=220)
         if st.button("Reconnect MCP"):
             bridge = st.session_state.get("mcp_bridge")
             if bridge is not None:
@@ -226,6 +256,7 @@ def main():
                     max_tokens=int(max_tokens),
                     api_key=st.session_state.api_key,
                     base_url=st.session_state.base_url,
+                    system_prompt=st.session_state.system_prompt,
                 )
                 result = bridge.query(prompt, model=model, max_tokens=int(max_tokens))
                 text = result.get("text", "")
