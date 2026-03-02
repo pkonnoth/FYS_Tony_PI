@@ -71,6 +71,26 @@ def stand(slow: bool = True):
 
 
 @mcp.tool()
+def run_action(action_name: str, times: int = 1, with_stand: bool = False):
+    """Run a named action group directly."""
+    return robot.run_action(
+        action_name=action_name,
+        times=times,
+        with_stand=with_stand,
+    )
+
+
+@mcp.tool()
+def run_action_async(action_name: str, times: int = 1, with_stand: bool = False):
+    """Run a named action group asynchronously."""
+    return robot.run_action_async(
+        action_name=action_name,
+        times=times,
+        with_stand=with_stand,
+    )
+
+
+@mcp.tool()
 def walk_forward(steps: int = 1, speed: str = "normal", with_stand: bool = True):
     """Walk forward using action groups."""
     return robot.walk_forward(steps=steps, speed=speed, with_stand=with_stand)
@@ -104,6 +124,102 @@ def move_left(steps: int = 1, fast: bool = False):
 def move_right(steps: int = 1, fast: bool = False):
     """Move right."""
     return robot.move_right(steps=steps, fast=fast)
+
+
+@mcp.tool()
+def step_in_place(times: int = 10):
+    """March in place."""
+    return robot.step_in_place(times=times)
+
+
+@mcp.tool()
+def wave(times: int = 3):
+    """Wave hand."""
+    return robot.wave(times=times)
+
+
+@mcp.tool()
+def bow(times: int = 1):
+    """Bow."""
+    return robot.bow(times=times)
+
+
+@mcp.tool()
+def celebrate():
+    """Celebration pose."""
+    return robot.celebrate()
+
+
+@mcp.tool()
+def twist(times: int = 5):
+    """Twist waist."""
+    return robot.twist(times=times)
+
+
+@mcp.tool()
+def push_ups(times: int = 3):
+    """Do push-ups."""
+    return robot.push_ups(times=times)
+
+
+@mcp.tool()
+def sit_ups(times: int = 3):
+    """Do sit-ups."""
+    return robot.sit_ups(times=times)
+
+
+@mcp.tool()
+def squat(times: int = 5):
+    """Squat."""
+    return robot.squat(times=times)
+
+
+@mcp.tool()
+def weightlifting():
+    """Weightlifting pose."""
+    return robot.weightlifting()
+
+
+@mcp.tool()
+def kick_left(fast: bool = False):
+    """Left kick."""
+    return robot.kick_left(fast=fast)
+
+
+@mcp.tool()
+def kick_right(fast: bool = False):
+    """Right kick."""
+    return robot.kick_right(fast=fast)
+
+
+@mcp.tool()
+def punch_left():
+    """Left hook punch."""
+    return robot.punch_left()
+
+
+@mcp.tool()
+def punch_right():
+    """Right hook punch."""
+    return robot.punch_right()
+
+
+@mcp.tool()
+def wing_chun():
+    """Wing Chun martial arts moves."""
+    return robot.wing_chun()
+
+
+@mcp.tool()
+def stand_up_from_front():
+    """Stand up from front fall."""
+    return robot.stand_up_from_front()
+
+
+@mcp.tool()
+def stand_up_from_back():
+    """Stand up from back fall."""
+    return robot.stand_up_from_back()
 
 
 @mcp.tool()

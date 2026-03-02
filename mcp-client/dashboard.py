@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import asyncio
+import json
 import socket
 import sys
 import threading
@@ -18,6 +19,7 @@ REPO_ROOT = SCRIPT_DIR.parent
 SERVER_SCRIPT = str(REPO_ROOT / "MCPServer.py")
 SERVER_CWD = str(REPO_ROOT)
 SERVER_PYTHON = sys.executable
+METRICS_FILE = SCRIPT_DIR / "latency_metrics.json"
 
 
 def _detect_host_ip() -> str:
@@ -46,6 +48,33 @@ def _detect_host_ip() -> str:
 
 def _default_mjpg_url() -> str:
     return f"http://{_detect_host_ip()}:8080/"
+
+
+def _load_metrics() -> list:
+    if not METRICS_FILE.exists():
+        return []
+    try:
+        data = json.loads(METRICS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except Exception:
+        pass
+    return []
+
+
+def _save_metrics(metrics: list):
+    try:
+        METRICS_FILE.write_text(
+            json.dumps(metrics, ensure_ascii=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _clear_metrics():
+    st.session_state.metrics = []
+    _save_metrics(st.session_state.metrics)
 
 
 class DashboardMCPBridge:
@@ -146,7 +175,7 @@ def _init_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "metrics" not in st.session_state:
-        st.session_state.metrics = []
+        st.session_state.metrics = _load_metrics()
     if "api_key" not in st.session_state:
         st.session_state.api_key = settings.get("OPENAI_API_KEY", "")
     if "base_url" not in st.session_state:
@@ -216,6 +245,9 @@ def main():
         st.caption(f"API key configured: {'Yes' if has_key else 'No'}")
         st.caption(f"MCP server: {SERVER_SCRIPT}")
         st.text_area("System Prompt", key="system_prompt", height=220)
+        if st.button("Clear Latency History"):
+            _clear_metrics()
+            st.success("Latency history cleared.")
         if st.button("Reconnect MCP"):
             bridge = st.session_state.get("mcp_bridge")
             if bridge is not None:
@@ -269,6 +301,7 @@ def main():
                         "time_to_action_s": result.get("time_to_action_s"),
                     }
                 )
+                _save_metrics(st.session_state.metrics)
             except Exception as exc:
                 bridge = st.session_state.get("mcp_bridge")
                 if bridge is not None:
